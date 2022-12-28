@@ -1,34 +1,60 @@
+using Microsoft.EntityFrameworkCore;
+using ToDoWebApi.Data;
+using ToDoWebApi.Models;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Services.AddDbContext<AppDbContext>(opt =>
+    opt.UseSqlite(builder.Configuration.GetConnectionString("SqLiteCS")));
+
+//swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseSwagger();
+app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
+app.MapGet("api/todo", async (AppDbContext context) => 
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching "
-};
+    var items = await context.ToDos.ToListAsync();
 
-app.MapGet("/weatherforecast", () =>
+    return Results.Ok(items);
+});
+
+app.MapPost("api/todo", async (AppDbContext context, ToDo toDo) =>
 {
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateTime.Now.AddDays(index),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
+    await context.ToDos.AddAsync(toDo);
+    await context.SaveChangesAsync();
+
+    return Results.Created($"api/todo/{toDo.Id}", toDo);
+});
+
+app.MapPut("api/todo/{id}", async (AppDbContext context, int id, ToDo toDo) =>
+{
+    var item = await context.ToDos.FirstOrDefaultAsync(x =>  x.Id == id);
+
+    if (item == null) return Results.NotFound();
+
+    item.ToDoName = toDo.ToDoName;
+
+    await context.SaveChangesAsync();
+
+    return Results.NoContent();
+});
+
+
+app.MapDelete("api/todo/{id}", async (AppDbContext context, int id) =>
+{
+    var item = await context.ToDos.FirstOrDefaultAsync(x => x.Id == id);
+
+    if (item == null) return Results.NotFound();
+
+    context.Remove(item);
+    await context.SaveChangesAsync();
+
+    return Results.NoContent();
 });
 
 app.Run();
-
-internal record WeatherForecast(DateTime Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
