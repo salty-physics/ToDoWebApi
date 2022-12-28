@@ -6,15 +6,21 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseSqlite(builder.Configuration.GetConnectionString("SqLiteCS")));
 
-// Add services to the container.
+//swagger
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+app.UseSwagger();
+app.UseSwaggerUI();
 
-//app.UseHttpsRedirection();
+app.MapGet("api/todo", async (AppDbContext context) => 
+{
+    var items = await context.ToDos.ToListAsync();
 
-
+    return Results.Ok(items);
+});
 
 
 app.Run();
